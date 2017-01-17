@@ -173,8 +173,7 @@ function makeValidationVm (validations, parentVm, rootVm = parentVm, parentProp 
   const validationVm = new Vue({
     data: {
       dirty: false,
-      dynamicKeys,
-      validations
+      dynamicKeys
     },
     methods: defaultMethods,
     computed: {
