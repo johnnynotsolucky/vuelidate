@@ -102,12 +102,29 @@ const defaultComputed = {
       }
       return isNested(val) ? val.$pending : false
     })
+  },
+  $msg () {
+    const messages = {}
+    const keys = this.dynamicKeys
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i]
+      const validationKey = key.replace(keyPrefix, '')
+      const computedMessage = this[key + messageKeyPostfix]
+      if (computedMessage) {
+        messages[validationKey] = computedMessage
+      }
+    }
+
+    return messages
   }
 }
 
 const defaultMethodKeys = Object.keys(defaultMethods)
 const defaultComputedKeys = Object.keys(defaultComputed)
-const mapDynamicKeyName = k => 'v$$' + k
+const keyPrefix = 'v$$'
+const messageKeyPostfix = '$message'
+const mapDynamicKeyName = k => keyPrefix + k
+const mapDynamicMessageKeyName = k => keyPrefix + k + messageKeyPostfix
 
 function isSingleRule (ruleset) {
   return typeof ruleset === 'function'
@@ -144,17 +161,26 @@ function makeValidationVm (validations, parentVm, rootVm = parentVm, parentProp 
     return mapValidator(rootVm, rule, key, parentVm, parentProp)
   }, mapDynamicKeyName)
 
+  const messageKeys = validationKeys
+    .filter(key => validations[key].message)
+  const computedMessages = buildFromKeys(messageKeys, (key) => {
+    const messageFn = validations[key].message
+    return mapMessage(rootVm, messageFn, parentVm, parentProp)
+  }, mapDynamicMessageKeyName)
+
   const Vue = getVue(rootVm)
 
   const validationVm = new Vue({
     data: {
       dirty: false,
-      dynamicKeys
+      dynamicKeys,
+      validations
     },
     methods: defaultMethods,
     computed: {
       ...computedRules,
-      ...defaultComputed
+      ...defaultComputed,
+      ...computedMessages
     }
   })
 
@@ -177,6 +203,12 @@ function unwrapMaybeAsync (vm, dynamicKey) {
     return val.value
   }
   return val
+}
+
+function mapMessage (rootVm, messageFn, parentVm, prop) {
+  return function () {
+    return messageFn.call(rootVm, parentVm[prop])
+  }
 }
 
 function mapRule (rootVm, rule, ruleKey, parentVm, prop) {
